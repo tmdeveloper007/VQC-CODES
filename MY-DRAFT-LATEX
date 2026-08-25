@@ -1,0 +1,324 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Essential Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{cite}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% --- Hyperlink Setup ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+% --- Document Metadata ---
+\title{\textbf{Project Report}}
+\author{\textbf{TATHAGATA MITRA} \\ Jadavpur University}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This progress report investigates hybrid quantum-classical methods for multi-label emotion classification in Bengali, a low-resource language with limited labelled data and standardized benchmarks. The study combines pretrained transformer representations with variational quantum circuits and examines how quantum embedding, data encoding, entanglement, circuit depth, measurement, and optimization affect the separability of emotion representations. Two custom four-qubit architectures are explored to improve expressive capacity under limited quantum resources. The broader objective is to develop trainable quantum classifiers that improve recognition of overlapping and minority emotion classes while remaining competitive with conventional baseline models.
+\end{abstract}
+
+\section{Introduction}
+This progress report summarizes the investigation of variational quantum circuits (VQCs) and quantum embedding strategies for emotion classification, with particular emphasis on Bengali as a low-resource language. The work completed so far indicates that the geometry and separability of the learned representation space depend strongly on the selected quantum embedding. This observation motivates a systematic study of custom VQC architectures, alternative data-encoding schemes, entanglement patterns, circuit depth, measurement strategies, and optimizer variants. The broader objective is to improve multi-class emotion recognition and exceed conventional baseline performance in the approximate range of 50-60\%. The report documents the present conclusions, discusses the limitations of the current approach, and defines a structured programme for developing more expressive and trainable quantum classifiers.
+
+Emotion classification from text is an important natural language processing task with applications in sentiment-aware dialogue systems, social-media analysis, public-opinion monitoring, and human-computer interaction. The problem becomes substantially more difficult for low-resource languages such as Bengali because labelled corpora, language-specific pretrained models, balanced emotion datasets, and standardized benchmarks are comparatively limited. The difficulty increases further when the objective is multi-class emotion recognition rather than binary sentiment classification. Closely related emotions may occupy overlapping regions of the representation space, and minority classes can be suppressed by dominant labels.
+
+The present work studies whether hybrid quantum-classical models can provide a useful representation and decision mechanism for this setting.
+
+\section{Literature Review and Related Work}
+Recent advances in low-resource natural language processing (NLP) demonstrate that pretrained language models such as BanglaBERT can provide strong contextual text representations \cite{bhattacharjee2022banglabert}; however, multi-label emotion classification remains constrained by rigid output thresholds and can suffer substantial performance degradation under strict evaluation metrics such as the Exact Match Ratio (EMR). To address representation bottlenecks, near-term quantum machine learning (QML) paradigms use parameterized quantum circuits (PQCs) to map classical feature vectors into quantum Hilbert spaces $\mathcal{H}$ \cite{chang2025primer}. To increase expressivity in low-qubit architectures, Pérez-Salinas et al. introduced the data re-uploading paradigm, in which classical feature-encoding layers $U(x)$ are interleaved with trainable unitary transformations $U(\theta)$ across $L$ layers \cite{perez2020data}:
+\begin{equation}
+U(\theta, x) = \prod_{l=1}^{L} U(\theta_l) U(x) .
+\end{equation}
+Repeatedly injecting the input allows constrained circuits to represent more complex decision functions than a single encoding layer. Building on these theoretical foundations, the present work combines a BanglaBERT feature extractor with a data-re-uploading VQC ansatz and per-label decision-threshold calibration. This design targets class imbalance and seeks to improve joint subset-prediction accuracy in multi-label Bengali emotion classification.
+
+\section{Dataset}
+This study uses the EmoNoBa dataset, a manually annotated collection of 22,698 public Bangla comments gathered from social media platforms \cite{islam2022emonoba}. The comments span 12 domains, including personal matters, politics, and health, and are labeled with six fine-grained emotion categories based on the Junto Emotion Wheel. The dataset preserves the informal and noisy characteristics of online Bangla text, making it suitable for evaluating emotion-classification models under realistic conditions.
+
+\section{Methodology}
+
+\subsection{Variational Quantum Circuits}
+Following the transformer encoding, the 768-dimensional CLS embedding is projected by a trainable linear layer to a low-dimensional feature vector. Depending on the variant, the vector is squashed by $\tanh$ and fed directly into a four-qubit variational quantum circuit (VQC); the circuit outputs are mapped back through a post-quantum linear layer and a ReLU activation before the final classifier. Two custom VQCs are investigated.
+
+\paragraph{Custom 1 re-uploading VQC.} The circuit acts on $n=4$ qubits and consumes an $\mathbb{R}^{8}$ vector, i.e. two features per qubit. 
+\begin{enumerate}
+    \item[(i)] \textbf{Encoding.} For each qubit $q$, its feature pair $(x_{2q}, x_{2q+1})$ is first rotated by a learnable phase $\phi_q$:
+    \begin{equation}
+    x_{2q}^{\prime} = s_q (\cos \phi_q x_{2q} - \sin \phi_q x_{2q+1}) ,
+    \end{equation}
+    \begin{equation}
+    x_{2q+1}^{\prime} = s_q (\sin \phi_q x_{2q} + \cos \phi_q x_{2q+1}) ,
+    \end{equation}
+    where $s_q$ is a second learnable amplitude per qubit. The rotated values are applied as rotation angles $R_X(x_{2q}^{\prime})$ and $R_Y(x_{2q+1}^{\prime})$ on qubit $q$.
+    \item[(ii)] \textbf{Ansatz.} Each variational block applies a general single-qubit rotation $R_Z R_Y R_Z \equiv \text{Rot}$ on every qubit, followed by a ring of controlled-$Z$ entangling gates $CZ[q, (q+1) \bmod 4]$.
+    \item[(iii)] \textbf{Data re-uploading.} The data-dependent encoding is inserted before both variational blocks, i.e. encode $\rightarrow$ ansatz $\rightarrow$ encode $\rightarrow$ ansatz, so the input is re-supplied between trainable layers.
+    \item[(iv)] \textbf{Measurement.} Both $\langle Z_q \rangle$ and $\langle X_q \rangle$ are measured on all four qubits, yielding $2n=8$ expectation values that feed the post-quantum layer. The circuit contains 20 trainable parameters: 4 phase parameters, 4 scale parameters, and 12 ansatz angles.
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.85, every node/.style={transform shape}]
+    % Qubit lines
+    \draw (0,3) node[left] {$0$} -- (11.5,3);
+    \draw (0,2) node[left] {$1$} -- (11.5,2);
+    \draw (0,1) node[left] {$2$} -- (11.5,1);
+    \draw (0,0) node[left] {$3$} -- (11.5,0);
+    
+    % Layer 1: RY & Rot
+    \foreach \y in {0,1,2,3} {
+        \draw[fill=white, rounded corners=2pt, thick] (0.5,\y-0.3) rectangle (1.3,\y+0.3) node[midway] {\small RY};
+        \draw[fill=white, rounded corners=2pt, thick] (1.6,\y-0.3) rectangle (2.4,\y+0.3) node[midway] {\small Rot};
+    }
+    
+    % Entanglement 1
+    \draw[fill=black] (2.9,3) circle (2pt); \draw (2.9,3) -- (2.9,2); \draw (2.9,2) circle (4pt);
+    \draw[fill=black] (3.6,2) circle (2pt); \draw (3.6,2) -- (3.6,1); \draw (3.6,1) circle (4pt);
+    \draw[fill=black] (4.3,1) circle (2pt); \draw (4.3,1) -- (4.3,0); \draw (4.3,0) circle (4pt);
+    \draw[fill=black] (5.0,0) circle (2pt); \draw (5.0,0) -- (5.0,3); \draw (5.0,3) circle (4pt);
+    
+    % Layer 2: Rot
+    \foreach \y in {0,1,2,3} {
+        \draw[fill=white, rounded corners=2pt, thick] (5.5,\y-0.3) rectangle (6.3,\y+0.3) node[midway] {\small Rot};
+    }
+    
+    % Entanglement 2
+    \draw[fill=black] (6.8,3) circle (2pt); \draw (6.8,3) -- (6.8,1); \draw (6.8,1) circle (4pt);
+    \draw[fill=black] (7.5,2) circle (2pt); \draw (7.5,2) -- (7.5,0); \draw (7.5,0) circle (4pt);
+    \draw[fill=black] (8.2,1) circle (2pt); \draw (8.2,1) -- (8.2,2); \draw (8.2,2) circle (4pt);
+    \draw[fill=black] (8.9,0) circle (2pt); \draw (8.9,0) -- (8.9,3); \draw (8.9,3) circle (4pt);
+    
+    % Measurement
+    \foreach \y in {0,1,2,3} {
+        \draw[fill=white, rounded corners=2pt, thick] (9.5,\y-0.3) rectangle (10.3,\y+0.3);
+        \draw (9.7,\y-0.15) arc (180:0:0.2);
+        \draw-> (9.9,\y-0.15) -- (10.1,\y+0.15);
+    }
+\end{tikzpicture}
+\caption{Four-qubit circuit architecture used for the Custom 1 VQC.}
+\label{fig:custom1}
+\end{figure}
+
+\paragraph{Custom 2 cross-coupling VQC.} This variant also uses $n=4$ qubits but consumes an $\mathbb{R}^{4}$ vector. 
+\begin{enumerate}
+    \item[(i)] \textbf{Encoding.} Each feature is directly injected as a single-axis rotation $R_Y(x_i)$ on qubit $i$ (angle embedding).
+    \item[(ii)] \textbf{Ansatz.} Two variational layers are used, each consisting of a general Rot applied to every qubit followed by a controlled-NOT entangling stage. The first stage uses a nearest-neighbour ring, with CNOT gates on (0, 1), (1, 2), (2, 3), and (3, 0); the second uses a cross-coupling pattern, with CNOT gates on (0, 2), (1, 3), (2, 1), and (3, 0). The same 12-parameter weight tensor is shared by both Rot layers. No data re-uploading is performed.
+    \item[(iii)] \textbf{Measurement.} The Pauli-$Z$ expectation is measured on every qubit, producing four outputs for the post-quantum linear layer.
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.85, every node/.style={transform shape}]
+    % Qubit lines
+    \draw (0,3) node[left] {$0$} -- (11.5,3);
+    \draw (0,2) node[left] {$1$} -- (11.5,2);
+    \draw (0,1) node[left] {$2$} -- (11.5,1);
+    \draw (0,0) node[left] {$3$} -- (11.5,0);
+    
+    % Layer 1: RX, RY, Rot
+    \foreach \y in {0,1,2,3} {
+        \draw[fill=white, rounded corners=2pt, thick] (0.5,\y-0.3) rectangle (1.2,\y+0.3) node[midway] {\small RX};
+        \draw[fill=white, rounded corners=2pt, thick] (1.4,\y-0.3) rectangle (2.1,\y+0.3) node[midway] {\small RY};
+        \draw[fill=white, rounded corners=2pt, thick] (2.3,\y-0.3) rectangle (3.1,\y+0.3) node[midway] {\small Rot};
+    }
+    
+    % Ring CNOTs
+    \draw[fill=black] (3.6,3) circle (2pt); \draw (3.6,3) -- (3.6,2); \draw[fill=black] (3.6,2) circle (2pt);
+    \draw[fill=black] (4.3,2) circle (2pt); \draw (4.3,2) -- (4.3,1); \draw[fill=black] (4.3,1) circle (2pt);
+    \draw[fill=black] (5.0,1) circle (2pt); \draw (5.0,1) -- (5.0,0); \draw[fill=black] (5.0,0) circle (2pt);
+    \draw[fill=black] (5.7,0) circle (2pt); \draw (5.7,0) -- (5.7,3); \draw[fill=black] (5.7,3) circle (2pt);
+    
+    % Layer 2: RX, RY, Rot
+    \foreach \y in {0,1,2,3} {
+        \draw[fill=white, rounded corners=2pt, thick] (6.2,\y-0.3) rectangle (6.9,\y+0.3) node[midway] {\small RX};
+        \draw[fill=white, rounded corners=2pt, thick] (7.1,\y-0.3) rectangle (7.8,\y+0.3) node[midway] {\small RY};
+        \draw[fill=white, rounded corners=2pt, thick] (8.0,\y-0.3) rectangle (8.8,\y+0.3) node[midway] {\small Rot};
+    }
+    
+    % Cross-coupling CNOTs
+    \draw[fill=black] (9.3,3) circle (2pt); \draw (9.3,3) -- (9.3,1); \draw[fill=black] (9.3,1) circle (2pt);
+    \draw[fill=black] (10.0,0) circle (2pt); \draw (10.0,0) -- (10.0,3); \draw[fill=black] (10.0,3) circle (2pt);
+    
+    % Measurement
+    \foreach \y in {0,1,2,3} {
+        \draw[fill=white, rounded corners=2pt, thick] (10.5,\y-0.3) rectangle (11.2,\y+0.3);
+        \draw (10.7,\y-0.15) arc (180:0:0.18);
+        \draw-> (10.87,\y-0.15) -- (11.05,\y+0.15);
+    }
+\end{tikzpicture}
+\caption{Four-qubit circuit architecture used for the Custom 2 VQC.}
+\label{fig:custom2}
+\end{figure}
+
+The two designs therefore contrast a re-uploaded encoding-plus-entangling scheme (Custom 1) against a deeper cross-coupling entangling scheme without feature re-uploading (Custom 2), while keeping the outer hybrid architecture identical.
+
+\section{Experiment and Results}
+
+\begin{table}[htbp]
+\centering
+\caption{Performance comparison of IndicBERTv2 \cite{doddapaneni2023towards} and BanglaBERT \cite{bhattacharjee2022banglabert} under different qubit and VQC configurations.}
+\label{tab:results}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{c|c|l|c|c|c|c|c|c|c}
+\toprule
+\multirow{2}{*}{\textbf{Framework}} & \multirow{2}{*}{\textbf{Qubit}} & \multirow{2}{*}{\textbf{VQC}} & \multicolumn{3}{c|}{\textbf{Macro}} & \multicolumn{3}{c|}{\textbf{Partial Match}} & \multirow{2}{*}{\textbf{Exact Match Ratio}} \\ \cline{4-9}
+ &  &  & \textbf{Precision} & \textbf{Recall} & \textbf{F1-score} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-score} &  \\ \midrule
+\multirow{10}{*}{IndicBERTv2} & 0 & N/A (Classical) & 0.4917 & 0.5900 & \textbf{0.5333} & 0.6136 & 0.6916 & \textbf{0.6268} & 0.4252 \\ \cline{2-10} 
+ & \multirow{3}{*}{2} & SEL & 0.2861 & 0.6220 & 0.3741 & 0.3564 & 0.7606 & 0.4739 & 0.0238 \\
+ &  & Custom 1 & 0.4493 & \textbf{0.6406} & 0.4869 & 0.6039 & 0.6820 & 0.6164 & 0.4230 \\
+ &  & Custom 2 & 0.3758 & 0.5720 & 0.4443 & 0.4601 & 0.7225 & 0.5386 & 0.1527 \\ \cline{2-10} 
+ & \multirow{3}{*}{4} & SEL & 0.4032 & 0.5796 & 0.4572 & 0.4825 & 0.6704 & 0.5387 & 0.2148 \\
+ &  & Custom 1 & 0.4616 & 0.5496 & 0.4922 & 0.5996 & 0.6845 & \textbf{0.6141} & 0.4155 \\
+ &  & Custom 2 & 0.3717 & 0.6115 & 0.4523 & 0.4062 & 0.7476 & 0.5156 & 0.0519 \\ \cline{2-10} 
+ & \multirow{3}{*}{8} & SEL & 0.3528 & 0.6212 & 0.4434 & 0.4082 & 0.7559 & 0.5189 & 0.0497 \\
+ &  & Custom 1 & 0.4642 & 0.5521 & 0.4982 & 0.6030 & 0.6814 & 0.6144 & 0.4265 \\
+ &  & Custom 2 & \textbf{0.5095} & 0.5301 & \textbf{0.5165} & \textbf{0.6266} & 0.6685 & \textbf{0.6255} & \textbf{0.4577} \\ \midrule
+\multirow{10}{*}{BanglaBERT} & 0 & N/A (Classical) & 0.1358 & 0.5000 & 0.2101 & 0.2716 & 0.7144 & 0.3870 & 0.0000 \\ \cline{2-10} 
+ & \multirow{3}{*}{2} & SEL & 0.2916 & 0.6392 & 0.3825 & 0.3637 & 0.7695 & 0.4822 & 0.0264 \\
+ &  & Custom 1 & 0.3946 & 0.6033 & 0.4486 & 0.4521 & 0.7111 & 0.5320 & 0.1505 \\
+ &  & Custom 2 & 0.1760 & \textbf{0.6667} & 0.2749 & 0.2640 & \textbf{0.9198} & 0.4039 & 0.0000 \\ \cline{2-10} 
+ & \multirow{3}{*}{4} & SEL & 0.4369 & 0.5713 & 0.4791 & 0.5407 & 0.6902 & 0.5796 & 0.3178 \\
+ &  & Custom 1 & 0.4419 & 0.5136 & 0.4653 & 0.5710 & 0.6591 & \textbf{0.5858} & 0.3891 \\
+ &  & Custom 2 & 0.4622 & 0.5174 & 0.4850 & 0.5954 & 0.6652 & 0.6062 & 0.4071 \\ \cline{2-10} 
+ & \multirow{3}{*}{8} & SEL & 0.3521 & 0.5994 & 0.4347 & 0.3974 & 0.7475 & 0.5093 & 0.0387 \\
+ &  & Custom 1 & 0.4501 & 0.5001 & 0.4715 & 0.5809 & 0.6599 & 0.5935 & 0.3895 \\
+ &  & Custom 2 & \textbf{0.4915} & 0.4780 & \textbf{0.4798} & \textbf{0.6175} & 0.6371 & \textbf{0.6085} & \textbf{0.4630} \\ \bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    title={\textbf{BanglaBERT Exact Match Ratio (EMR) \& Trendlines vs. Qubits}},
+    xlabel={Number of Qubits},
+    ylabel={Exact Match Ratio (EMR)},
+    xmin=-0.5, xmax=8.5,
+    ymin=-0.02, ymax=0.52,
+    xtick={0, 2, 4, 8},
+    xticklabels={0 (Classical), 2, 4, 8},
+    legend pos=north west,
+    ymajorgrids=true,
+    xmajorgrids=true,
+    grid style=dashed,
+    width=0.85\textwidth,
+    height=0.5\textwidth
+]
+
+% Data scatter points
+\addplot[only marks, mark=*, mark size=3pt, color=teal] coordinates {(0, 0.0) (2, 0.0264) (4, 0.3178) (8, 0.0387)};
+\addlegendentry{\small SEL (Data)}
+
+\addplot[only marks, mark=*, mark size=3pt, color=orange!80!black] coordinates {(0, 0.0) (2, 0.1505) (4, 0.3891) (8, 0.3895)};
+\addlegendentry{\small Custom 1 (Data)}
+
+\addplot[only marks, mark=*, mark size=3pt, color=purple!70!blue] coordinates {(0, 0.0) (2, 0.0) (4, 0.4071) (8, 0.4630)};
+\addlegendentry{\small Custom 2 (Data)}
+
+% Polynomial Trendlines
+\addplot[dashed, thick, color=teal, domain=0:8, samples=50] {-0.015*x^2 + 0.11*x - 0.01};
+\addlegendentry{\small SEL (Best Fit)}
+
+\addplot[dashed, thick, color=orange!80!black, domain=0:8, samples=50] {-0.009*x^2 + 0.115*x - 0.01};
+\addlegendentry{\small Custom 1 (Best Fit)}
+
+\addplot[dashed, thick, color=purple!70!blue, domain=0:8, samples=50] {0.003*x^2 + 0.035*x - 0.01};
+\addlegendentry{\small Custom 2 (Best Fit)}
+
+\end{axis}
+\end{tikzpicture}
+\caption{BanglaBERT Exact Match Ratio (EMR) across qubit counts for SEL, Custom 1, and Custom 2, together with their fitted trend lines.}
+\label{fig:emr_trendlines}
+\end{figure}
+
+\section{Discussion}
+The results demonstrate that both the pretrained encoder and the quantum-circuit design strongly influence classification performance. IndicBERTv2 provides the strongest classical representation, whereas the quantum variants produce particularly large gains for the weaker BanglaBERT baseline. As the qubit count increases, Custom 1 shows relatively consistent improvement, while Custom 2 achieves the highest exact-match ratios for both encoders, reaching 0.4577 with IndicBERTv2 and 0.4630 with BanglaBERT. The trend in Fig. \ref{fig:emr_trendlines} further indicates that additional qubits are most beneficial when paired with an expressive encoding and entanglement strategy; increasing circuit size alone does not guarantee uniform improvement across all configurations.
+
+\subsection{Work on Optimiser}
+We also evaluated hybrid optimisation strategies that combined AdamW with Rotosolve, as well as a custom optimiser developed for the quantum circuit. These hybrid optimiser configurations performed poorly when integrated into the hybrid emotion-classification framework. In particular, they reduced the Exact Match Ratio by approximately 10\% compared with the standard training setup, thereby harming overall classification performance. This result suggests that alternating or combining optimisers across the classical and quantum components can destabilise joint training and requires more careful scheduling, parameter grouping, and convergence control.
+
+\subsection{Separate Positive Improvements}
+Further changes are being developed independently to improve the two custom circuits. Custom 2 is being handled by Tathagata Mitra, while Custom 1 is being handled by Biswanath Ranjit.
+
+\paragraph{Custom 1 improvements.} The following changes have been introduced to increase the expressivity, training stability, and information-preservation capacity of Custom 1 while retaining its four-qubit register size:
+\begin{itemize}
+    \item \textbf{Deep feature projection network:} IndicBERT's 768 contextual features are compressed to four VQC inputs through a multi-stage linear architecture, $768 \rightarrow 256 \rightarrow 128 \rightarrow 64 \rightarrow 4$, using GELU activations and a dropout rate of 0.3 to minimise information loss and reduce overfitting.
+    \item \textbf{Enhanced variational quantum circuit:} The circuit depth is increased to two variational layers with independent trainable parameters. Inputs are encoded through Y-axis \texttt{AngleEmbedding}, rotations are bounded using $\tanh(\cdot)$ input normalisation, and cross-entanglement connections $(0 \rightarrow 2)$ and $(1 \rightarrow 3)$ are added alongside the standard ring entanglement.
+    \item \textbf{Post-quantum fusion layer:} A learnable linear layer, $4 \rightarrow 128$, is appended after the VQC to project the four quantum expectation values into a higher-dimensional classical representation for classification.
+    \item \textbf{Differential optimisation strategy:} Component-specific learning rates are used for IndicBERT ($2 \times 10^{-5}$), the classifier ($1 \times 10^{-4}$), and the quantum VQC ($1 \times 10^{-3}$). These are combined with a weight decay of 0.01, \texttt{ReduceLROnPlateau} scheduling, and early stopping with a patience of five epochs.
+    \item \textbf{Multi-label class-imbalance handling:} \texttt{BCEWithLogitsLoss} is configured with label-frequency-based \texttt{pos\_weight} values to improve the detection of underrepresented emotions such as Fear and Surprise.
+    \item \textbf{Validation-threshold optimisation:} The static decision threshold of 0.5 is replaced with per-emotion optimal thresholds, ranging from 0.26 for Surprise to 0.82 for Sadness, to maximise per-class F1-scores.
+    \item \textbf{Performance benchmark gains:} On the four-qubit configuration, these changes improve performance across the primary metrics and raise the Exact Match Ratio from 0.4155 to 0.4674.
+\end{itemize}
+
+\paragraph{Custom 2 improvements.} The following changes have been introduced to increase the expressivity and information capacity of Custom 2 without increasing its four-qubit register size:
+\begin{itemize}
+    \item \textbf{Measurement strategy:} The baseline circuit measured only the single-qubit Pauli-$Z$ and Pauli-$X$ expectation values, yielding eight output features. The measurement set is expanded to include the Pauli-$Y$ expectation on every qubit and the four two-qubit ring correlators $\langle Z_i Z_{i+1} \rangle$. This produces 16 measurement outputs and transfers richer information from the quantum subsystem to the classical readout without increasing the number of qubits.
+    \item \textbf{Data encoding:} The input encoding is extended from two-axis rotations $(R_X, R_Y)$ to three-axis rotations $(R_X, R_Y, R_Z)$ on each qubit, increasing the number of classical features embedded into the quantum state from eight to twelve. A learned phase rotation mixes the first feature of each pair before encoding, while the encoding scale remains trainable.
+    \item \textbf{Data re-uploading:} The number of data re-upload repetitions is increased from one to two per variational layer. This allows each encoding step to interact with the trainable unitary more frequently and increases the effective nonlinearity of the quantum feature map.
+    \item \textbf{Variational ansatz:} The entangling pattern is made layer-dependent. Even-indexed layers use a nearest-neighbour cycle of controlled-$Z$ gates, whereas odd-indexed layers use controlled-NOT gates between next-nearest neighbours. Alternating the entangling topology reduces redundancy between successive unitary blocks and improves circuit expressibility.
+    \item \textbf{Layer count:} The number of variational layers is increased from one to three. Each layer now uses its own dedicated rotation parameters, rather than repeatedly using a shared weight slice, ensuring that the additional circuit depth provides additional trainable capacity.
+    \item \textbf{Performance benchmark gains:} Together, these changes raise the Exact Match Ratio for Custom 2 from 0.4055 to 0.4804.
+\end{itemize}
+
+\section{Conclusion}
+This work investigated hybrid quantum-classical architectures for multi-label emotion classification of Bengali text, a low-resource setting in which conventional baselines plateau in the 50-60\% range. Two custom variational quantum circuits were designed and evaluated under an identical outer framework: the Custom 1 re-uploading VQC, which combines $R_X / R_Y$ encoding with learnable per-qubit phase and scale parameters, a rotating ansatz, and input re-injection between variational layers; and the Custom 2 cross-coupling VQC, which combines a simple $R_Y$ angle encoding with two entangling layers using distinct nearest-neighbour and cross-coupling CNOT topologies.
+
+Three main conclusions follow from the experimental study. First, the learned representation space depends strongly on the selected classical encoder and quantum embedding. The IndicBERTv2 classical baseline achieved a macro F1-score of 0.5333, compared with 0.2101 for BanglaBERT. The strongest quantum configurations reached macro F1-scores of 0.5165 for IndicBERTv2 and 0.4850 for BanglaBERT, while the highest exact-match ratios were 0.4577 and 0.4630, respectively. These results show that the quality of the pretrained representation remains important, although the quantum configurations substantially improve the weaker BanglaBERT baseline.
+
+Second, scaling behaviour is architecture- and encoder-dependent. The Custom 1 macro F1-score improves consistently as the register grows from two to eight qubits for both IndicBERTv2 (0.4869 to 0.4982) and BanglaBERT (0.4486 to 0.4715). Custom 2 exhibits a larger but less uniform gain, with its strongest performance appearing at eight qubits for IndicBERTv2 and four qubits for BanglaBERT. This suggests that additional Hilbert-space capacity is useful only when the encoding, entanglement pattern, and classical representation are jointly compatible.
+
+Third, simulator-backend selection does not alter the reported analytic scores. The \texttt{default.qubit} and \texttt{lightning.qubit} simulators are mathematically equivalent in this setting; switching to the faster backend reduces wall-clock training time from several hours to tens of minutes without changing the model outputs. The experiments also indicate that a four-qubit circuit trained with adjoint differentiation is preferable to backpropagation on PennyLane's lightning devices. AdamW optimization, plateau-based learning-rate reduction, and early stopping provide a stable training protocol for the hybrid model on the strongly imbalanced EmoNoBa corpus.
+
+\section{Limitations}
+The principal limitation is that the quantum branch introduces relatively few trainable parameters, so its benefit depends heavily on the quality of the compressed classical features. For very small registers, the quantum contribution can be dominated by the projection and post-processing layers. Future work should extend the comparison to larger registers with controlled re-uploading depth, combine cross-coupling entanglement with data re-uploading in a single ansatz, incorporate multi-observable and correlated readouts, and evaluate the strongest architectures under finite-shot and noisy simulation before deployment on quantum hardware.
+
+% --- References Section ---
+\begin{thebibliography}{9}
+
+\bibitem{bhattacharjee2022banglabert}
+Abhik Bhattacharjee, Tahmid Hasan, Wasi Ahmad, Kazi Samin Mubasshir, Md Saiful Islam, Anindya Iqbal, M. Sohel Rahman, and Rifat Shahriyar.
+\newblock BanglaBERT: Language model pre-training and benchmarks for low-resource language understanding evaluation in bangla.
+\newblock In \emph{Findings of the Association for Computational Linguistics: NAACL 2022}, pages 1318--1327. Association for Computational Linguistics, 2022.
+
+\bibitem{chang2025primer}
+Shih-Yu Chang and Marco Cerezo.
+\newblock A primer on quantum machine learning.
+\newblock \emph{arXiv preprint arXiv:2511.15969}, 2025.
+
+\bibitem{doddapaneni2023towards}
+Sumanth Doddapaneni, Rahul Aralikatte, Gowtham Ramesh, Shreya Goyal, Mitesh M. Khapra, Anoop Kunchukuttan, and Pratyush Kumar.
+\newblock Towards leaving no indic language behind: Building monolingual corpora, benchmark and models for indic languages.
+\newblock In \emph{Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)}, pages 12402--12426. Association for Computational Linguistics, 2023.
+
+\bibitem{islam2022emonoba}
+Khondoker Ittehadul Islam, Tanvir Yuvraz, Md Saiful Islam, and Enamul Hassan.
+\newblock EmoNoBa: A dataset for analyzing fine-grained emotions on noisy bangla texts.
+\newblock In \emph{Proceedings of the 2nd Conference of the Asia-Pacific Chapter of the Association for Computational Linguistics and the 12th International Joint Conference on Natural Language Processing (Volume 2: Short Papers)}, pages 128--134. Association for Computational Linguistics, 2022.
+
+\bibitem{perez2020data}
+Adrián Pérez-Salinas, Alba Cervera-Lierta, Elies Gil-Fuster, and José I. Latorre.
+\newblock Data re-uploading for a universal quantum classifier.
+\newblock \emph{Quantum}, 4:226, 2020.
+
+\end{thebibliography}
+
+\end{document}

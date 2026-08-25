@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(python3 -c import fitz; print('pymupdf ok') 2 > /dev/null)",
+      "Shell(python3 -c import pypdf; print('pypdf ok') 2 > /dev/null)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
