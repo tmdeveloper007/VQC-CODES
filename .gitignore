@@ -5,3 +5,5 @@
 *.blg
 *.bbl
 *.out
+.DS_Store
+.commandcode
