@@ -14,7 +14,7 @@ This repository contains the official implementation, experimental notebooks, da
 
 ---
 
-## 📌 Overview
+## Overview
 
 Multi-label emotion classification for low-resource and code-mixed languages such as Bengali poses significant challenges due to limited annotated corpora, severe class imbalance, and complex co-occurring emotions. 
 
@@ -24,7 +24,7 @@ By coupling pretrained Bengali transformer encoders (**IndicBERTv2** and **Bangl
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 The codebase is organized into four main functional directories:
 
@@ -62,7 +62,7 @@ VQC-CODES-main/
 
 ---
 
-## ⚡ Quantum Architectures & Circuit Designs
+## Quantum Architectures & Circuit Designs
 
 The framework evaluates three distinct variational quantum circuit (VQC) architectures:
 
@@ -83,7 +83,7 @@ The framework evaluates three distinct variational quantum circuit (VQC) archite
 
 ---
 
-## 📊 Encoders & Datasets
+## Encoders & Datasets
 
 ### Classical Encoders
 - **IndicBERTv2** (`ai4bharat/indic-bert-v2-mBERT`): Multilingual transformer model optimized for Indic languages.
@@ -95,7 +95,7 @@ The framework evaluates three distinct variational quantum circuit (VQC) archite
 
 ---
 
-## 📈 Evaluation Protocol & Metrics
+## Evaluation Protocol & Metrics
 
 Evaluating multi-label classification requires measures beyond standard accuracy. This repository implements a unified metric suite via [`evaluation_schemes.py`](MULTI_LABEL/DATASET/evaluation_schemes.py):
 
@@ -112,7 +112,7 @@ Evaluating multi-label classification requires measures beyond standard accuracy
 
 ---
 
-## 🚀 Key Empirical Results
+## Key Empirical Results
 
 - **Baselines vs. Quantum Enhancements**: Inserting the VQC bottleneck significantly enhances performance on weaker baseline representations.
 - **BanglaBERT Uplift**: Adding Custom 2 VQC boosts BanglaBERT's Macro $F_1$-score from **0.2101 to 0.4850** and raises the Exact Match Ratio (EMR) from **0.0000 to 0.4630**.
@@ -122,7 +122,7 @@ Evaluating multi-label classification requires measures beyond standard accuracy
 
 ---
 
-## 🛠️ Prerequisites & Installation
+## Prerequisites & Installation
 
 ### Requirements
 - Python 3.8+
@@ -148,7 +148,7 @@ pip install torch pennylane transformers scikit-learn pandas numpy matplotlib
 
 ---
 
-## 💻 Running the Code
+## Running the Code
 
 ### Running Multi-Label Training & Notebooks
 Open any notebook in JupyterLab or VSCode:
@@ -179,7 +179,7 @@ pdflatex MY-DRAFT-LATEX.tex
 
 ---
 
-## 📜 Citation
+## Citation
 
 If you find this codebase or research useful in your work, please cite:
 
@@ -194,6 +194,6 @@ If you find this codebase or research useful in your work, please cite:
 
 ---
 
-## 📄 License
+## License
 
 This repository is distributed under the [MIT License](LICENSE).
