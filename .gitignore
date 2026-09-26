@@ -1,3 +1,22 @@
+# IDE / Tool Configs
+.commandcode/
+.commandcode
+
+# Python / Environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# LaTeX Build Artifacts
 *.aux
 *.log
 *.fls
@@ -5,5 +24,11 @@
 *.blg
 *.bbl
 *.out
+*.synctex.gz
+*.toc
+*.lot
+*.lof
+
+# System / OS
 .DS_Store
-.commandcode
+Thumbs.db
